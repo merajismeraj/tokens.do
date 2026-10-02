@@ -4,7 +4,8 @@ import { auth, signIn, signOut } from "@/auth";
 export async function Header() {
   const session = await auth();
   return (
-    <header className="header container">
+    <header className="header">
+      <div className="container bar">
       <Link href="/" className="logo">
         tokens<span>.do</span>
       </Link>
@@ -12,7 +13,7 @@ export async function Header() {
         {session?.user ? (
           <>
             <Link href="/connect" className="btn ghost">
-              Connect models
+              connect
             </Link>
             <form
               action={async () => {
@@ -30,6 +31,7 @@ export async function Header() {
           <SignInButton />
         )}
       </nav>
+      </div>
     </header>
   );
 }

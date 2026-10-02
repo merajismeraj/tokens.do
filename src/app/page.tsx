@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { auth } from "@/auth";
 import { SignInButton } from "@/components/Header";
 import { ProfileLink } from "@/components/ProfileLink";
@@ -11,9 +12,11 @@ import { providers } from "@/lib/providers";
 
 export const dynamic = "force-dynamic";
 
-/** Visitors see the podium only; the rest is never sent until they sign in. */
-const PREVIEW_ROWS = 3;
-const LOCKED_ROWS = 5;
+/** Visitors get a 20-row board: the top 5 are real, the rest are blurred placeholders. Real ranks 6+ are never sent until sign-in. */
+const PREVIEW_ROWS = 5;
+const VISITOR_ROWS = 20;
+/** Ghost rows shown above the unlock prompt. */
+const CTA_AFTER = 2;
 
 export default async function LeaderboardPage() {
   const session = await auth();
@@ -27,7 +30,7 @@ export default async function LeaderboardPage() {
     <>
       <section className="hero">
         <h1>
-          Who burns the most tokens<span className="cursor">_</span>
+          tokens<span className="cursor">_</span>
         </h1>
         <p className="meta">
           <span>{formatCount(ranked)} ranked</span>
@@ -46,18 +49,18 @@ export default async function LeaderboardPage() {
           <table className="board">
             <thead>
               <tr>
-                <th className="rank">#</th>
+                <th className="rank c-rank">#</th>
                 <th>Builder</th>
-                <th className="hide-sm">Providers</th>
-                <th className="hide-sm">Top model</th>
-                <th className="num">Tokens</th>
+                <th className="hide-sm c-prov">Providers</th>
+                <th className="hide-sm c-model">Top model</th>
+                <th className="num c-tok">Tokens</th>
               </tr>
             </thead>
             <tbody>
               {board.entries.map((e) => (
                 <tr key={e.userId} className={e.userId === session?.user?.id ? "me" : undefined}>
                   <td className="rank">
-                    <span className={e.rank <= 3 ? `medal m${e.rank}` : undefined}>{e.rank}</span>
+                    <span className={e.rank <= 3 ? `medal m${e.rank}` : undefined}>{String(e.rank).padStart(2, "0")}</span>
                     <RankDelta rank={e.rank} prevRank={e.prevRank} />
                   </td>
                   <td>
@@ -77,31 +80,76 @@ export default async function LeaderboardPage() {
                 </tr>
               ))}
             </tbody>
+            {!signedIn && ranked > PREVIEW_ROWS && (
+              <tbody className="ghost">
+                {Array.from({ length: Math.min(VISITOR_ROWS, ranked) - PREVIEW_ROWS }, (_, i) => (
+                  <Fragment key={i}>
+                    {i === CTA_AFTER && <LockedCta hidden={ranked - PREVIEW_ROWS} />}
+                    <GhostRow rank={PREVIEW_ROWS + i + 1} />
+                  </Fragment>
+                ))}
+                {Math.min(VISITOR_ROWS, ranked) - PREVIEW_ROWS <= CTA_AFTER && <LockedCta hidden={ranked - PREVIEW_ROWS} />}
+              </tbody>
+            )}
           </table>
 
-          {!signedIn && ranked > PREVIEW_ROWS && (
-            <div className="locked">
-              <div className="locked-rows" aria-hidden>
-                {Array.from({ length: Math.min(LOCKED_ROWS, ranked - PREVIEW_ROWS) }, (_, i) => (
-                  <div key={i} className="locked-row">
-                    <span>{PREVIEW_ROWS + i + 1}</span>
-                    <span className="avatar" />
-                    <span className="bar" style={{ width: `${46 - i * 5}%` }} />
-                    <span className="bar short" />
-                  </div>
-                ))}
-              </div>
-              <div className="locked-cta">
-                <p>
-                  <strong>+{formatCount(ranked - PREVIEW_ROWS)} more</strong> on the board.
-                </p>
-                <SignInButton label="Sign in with X to see all" />
-              </div>
-            </div>
-          )}
         </div>
       )}
     </>
+  );
+}
+
+function LockedCta({ hidden }: { hidden: number }) {
+  const cta = (
+    <div className="locked-cta">
+      <p>
+        <strong>+{formatCount(hidden)}</strong> builders hidden
+      </p>
+      <SignInButton label="Sign in with X to unlock" />
+    </div>
+  );
+  return (
+    // colSpan must match the visible column count, or mobile grows phantom columns.
+    <>
+      <tr className="cta-row hide-sm">
+        <td colSpan={5}>{cta}</td>
+      </tr>
+      <tr className="cta-row show-sm">
+        <td colSpan={3}>{cta}</td>
+      </tr>
+    </>
+  );
+}
+
+/** Pseudo-random but stable widths so the blurred rows look like real data. */
+function GhostRow({ rank }: { rank: number }) {
+  const w = (n: number) => `${4 + ((rank * n) % 7)}ch`;
+  return (
+    <tr aria-hidden>
+      <td className="rank">{String(rank).padStart(2, "0")}</td>
+      <td>
+        <span className="who">
+          <span className="avatar" />
+          <span>
+            <span className="name">
+              <span className="blk" style={{ width: w(3) }} />
+            </span>
+            <span className="handle">
+              <span className="blk dim" style={{ width: w(5) }} />
+            </span>
+          </span>
+        </span>
+      </td>
+      <td className="hide-sm">
+        <span className="blk dim" style={{ width: "9ch" }} />
+      </td>
+      <td className="hide-sm">
+        <span className="blk dim" style={{ width: w(2) }} />
+      </td>
+      <td className="num">
+        <span className="blk" style={{ width: "5ch" }} />
+      </td>
+    </tr>
   );
 }
 
