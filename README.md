@@ -80,7 +80,7 @@ The rank card's **Share on 𝕏** button (and the CLI after a sync) opens X's co
 
 ## Visitor count
 
-The footer shows unique visitors per UTC day, summed, plus today's count. A client-side beacon (`src/components/VisitBeacon.tsx`) posts to `/api/visit` once per tab session, so crawlers and link unfurlers that don't run JS aren't counted; headless and bot user agents are dropped server-side. Each visitor is stored as an HMAC of day + IP + user agent (`Visitor`), so no IPs are kept and visits can't be linked across days. The daily cron prunes those hashes; only the per-day totals (`VisitDaily`) are kept.
+The footer shows unique visitors per UTC day, summed, plus today's count. It stays hidden until the total reaches 100 (`MIN_VISITORS_SHOWN` in `src/components/VisitCount.tsx`). A client-side beacon (`src/components/VisitBeacon.tsx`) posts to `/api/visit` once per tab session, so crawlers and link unfurlers that don't run JS aren't counted; headless and bot user agents are dropped server-side. Each visitor is stored as an HMAC of day + IP + user agent (`Visitor`), so no IPs are kept and visits can't be linked across days. The daily cron prunes those hashes; only the per-day totals (`VisitDaily`) are kept.
 
 ## Rate limits
 
