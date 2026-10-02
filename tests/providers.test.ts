@@ -1,0 +1,118 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { anthropic } from "@/lib/providers/anthropic";
+import { openai } from "@/lib/providers/openai";
+import { ProviderAuthError } from "@/lib/providers/types";
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+afterEach(() => vi.unstubAllGlobals());
+
+const start = new Date("2026-09-01T00:00:00Z");
+const end = new Date("2026-09-03T12:00:00Z");
+
+describe("openai adapter", () => {
+  it("paginates usage and merges rows per day+model", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        json({
+          data: [
+            {
+              start_time: 1756684800, // 2025-09-01T00:00:00Z
+              results: [{ model: "gpt-5", input_tokens: 1000, output_tokens: 200, input_cached_tokens: 400 }],
+            },
+          ],
+          has_more: true,
+          next_page: "p2",
+        }),
+      )
+      .mockResolvedValueOnce(
+        json({
+          data: [
+            {
+              start_time: 1756684800,
+              results: [
+                { model: "gpt-5", input_tokens: 10, output_tokens: 5, input_cached_tokens: 0 },
+                { model: "gpt-5-mini", input_tokens: 0, output_tokens: 0 },
+              ],
+            },
+          ],
+          has_more: false,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const rows = await openai.fetchDailyUsage("sk-admin-x", start, end);
+    expect(rows).toEqual([
+      { date: "2025-09-01", model: "gpt-5", inputTokens: 1010n, outputTokens: 205n, cachedTokens: 400n },
+    ]);
+
+    const firstUrl = new URL(fetchMock.mock.calls[0][0]);
+    expect(firstUrl.pathname).toBe("/v1/organization/usage/completions");
+    expect(firstUrl.searchParams.get("bucket_width")).toBe("1d");
+    expect(firstUrl.searchParams.get("group_by")).toBe("model");
+    expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get("page")).toBe("p2");
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer sk-admin-x");
+  });
+
+  it("identifies the org by its oldest project", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        json({
+          data: [
+            { id: "proj_new", created_at: 200 },
+            { id: "proj_default", created_at: 100 },
+          ],
+          has_more: false,
+        }),
+      ),
+    );
+    await expect(openai.identify("sk-admin-x")).resolves.toEqual({ orgId: "proj_default" });
+  });
+
+  it("throws ProviderAuthError on 401", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ error: "nope" }, 401)));
+    await expect(openai.identify("sk-admin-bad")).rejects.toBeInstanceOf(ProviderAuthError);
+  });
+});
+
+describe("anthropic adapter", () => {
+  it("sums uncached, cache-write and cache-read input", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      json({
+        data: [
+          {
+            starting_at: "2026-09-01T00:00:00Z",
+            results: [
+              {
+                model: "claude-opus-4",
+                uncached_input_tokens: 100,
+                cache_creation: { ephemeral_1h_input_tokens: 20, ephemeral_5m_input_tokens: 30 },
+                cache_read_input_tokens: 50,
+                output_tokens: 70,
+              },
+            ],
+          },
+        ],
+        has_more: false,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const rows = await anthropic.fetchDailyUsage("sk-ant-admin-x", start, end);
+    expect(rows).toEqual([
+      { date: "2026-09-01", model: "claude-opus-4", inputTokens: 200n, outputTokens: 70n, cachedTokens: 50n },
+    ]);
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(url.pathname).toBe("/v1/organizations/usage_report/messages");
+    expect(url.searchParams.getAll("group_by[]")).toEqual(["model"]);
+    expect(fetchMock.mock.calls[0][1].headers["x-api-key"]).toBe("sk-ant-admin-x");
+  });
+
+  it("identifies the org via /organizations/me", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ id: "org_123", name: "Acme" })));
+    await expect(anthropic.identify("sk-ant-admin-x")).resolves.toEqual({ orgId: "org_123", orgName: "Acme" });
+  });
+});

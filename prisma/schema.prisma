@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Auth.js (X / Twitter OAuth) ────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  handle        String?   @unique // X username, without the @
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  accounts    Account[]
+  sessions    Session[]
+  connections Connection[]
+  entries     LeaderboardEntry[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ── Model provider connections ─────────────────────────────────────────────
+
+enum Provider {
+  openai
+  anthropic
+}
+
+enum ConnectionStatus {
+  active
+  invalid // provider rejected the key; stops syncing, history still counts
+}
+
+model Connection {
+  id             String           @id @default(cuid())
+  userId         String
+  provider       Provider
+  encryptedKey   String           @db.Text // AES-256-GCM, see src/lib/crypto.ts
+  keyHint        String // last 4 chars, for display only
+  orgFingerprint String // HMAC of the provider org id — one org, one owner
+  orgName        String?
+  status         ConnectionStatus @default(active)
+  lastSyncedAt   DateTime?
+  lastError      String?
+  createdAt      DateTime         @default(now())
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usage UsageDaily[]
+
+  @@unique([provider, orgFingerprint])
+  @@index([userId])
+}
+
+model UsageDaily {
+  connectionId String
+  date         DateTime @db.Date // UTC day bucket
+  model        String
+  inputTokens  BigInt
+  outputTokens BigInt
+  cachedTokens BigInt // subset of inputTokens served from cache
+  totalTokens  BigInt
+
+  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@id([connectionId, date, model])
+  @@index([date])
+}
+
+// ── Leaderboard snapshots (rebuilt every 24h) ──────────────────────────────
+
+model LeaderboardSnapshot {
+  id          String   @id @default(cuid())
+  generatedAt DateTime @default(now())
+  windowStart DateTime
+  windowEnd   DateTime
+  userCount   Int
+  totalTokens BigInt
+
+  entries LeaderboardEntry[]
+
+  @@index([generatedAt])
+}
+
+model LeaderboardEntry {
+  snapshotId   String
+  userId       String
+  rank         Int
+  prevRank     Int?
+  totalTokens  BigInt
+  inputTokens  BigInt
+  outputTokens BigInt
+  providers    Provider[]
+  topModel     String?
+
+  snapshot LeaderboardSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([snapshotId, userId])
+  @@index([snapshotId, rank])
+}
