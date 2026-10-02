@@ -13,6 +13,7 @@ export const LIMITS = {
   usageUpload: { limit: 60, windowSec: 3600 }, // per device
   me: { limit: 120, windowSec: 3600 }, // per device
   approve: { limit: 20, windowSec: 600 }, // per user: code entry attempts
+  visit: { limit: 30, windowSec: 3600 }, // per IP: visitor beacon
 } satisfies Record<string, Limit>;
 
 /** Atomically counts this request in the current window. Returns how long to wait if over the limit. */

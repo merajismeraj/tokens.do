@@ -30,6 +30,8 @@ describe.skipIf(!url)("pipeline (db)", () => {
     await db.leaderboardSnapshot.deleteMany();
     await db.deviceAuth.deleteMany();
     await db.rateLimit.deleteMany();
+    await db.visitor.deleteMany();
+    await db.visitDaily.deleteMany();
     await db.user.deleteMany();
   });
 
@@ -244,5 +246,25 @@ describe.skipIf(!url)("pipeline (db)", () => {
     expect(await getProfile("no_such_user")).toBeNull();
     expect(await getProfile("bad-handle")).toBeNull();
     expect(await getProfile("x".repeat(16))).toBeNull();
+  });
+
+  it("visits: one per visitor per day, concurrent-safe, bots skipped, old hashes pruned", async () => {
+    const { recordVisit, getVisitStats, pruneVisitors } = await import("@/lib/visits");
+    const ua = "Mozilla/5.0 (Macintosh) Safari/605.1.15";
+    const day1 = new Date("2026-01-01T10:00:00Z");
+    const firsts = await Promise.all(Array.from({ length: 8 }, () => recordVisit("203.0.113.9", ua, day1)));
+    expect(firsts.filter(Boolean)).toHaveLength(1);
+    expect(await recordVisit("203.0.113.10", ua, day1)).toBe(true);
+    expect(await recordVisit("203.0.113.9", "Twitterbot/1.0", day1)).toBe(false);
+    const day3 = new Date("2026-01-03T00:00:01Z");
+    expect(await recordVisit("203.0.113.9", ua, day3)).toBe(true); // a new day counts again
+    expect(await getVisitStats(day3)).toEqual({ total: 3, today: 1 });
+    expect((await pruneVisitors(day3)).count).toBe(2); // day1 hashes go, day3 stays
+    expect(await getVisitStats(day3)).toEqual({ total: 3, today: 1 }); // counts survive pruning
+
+    const route = await import("@/app/api/visit/route");
+    const res = await route.POST(new Request("http://test.local/api/visit", { method: "POST", headers: { "user-agent": ua, "x-forwarded-for": "198.51.100.77" } }));
+    expect(res.status).toBe(204);
+    expect((await getVisitStats()).today).toBe(1);
   });
 });
