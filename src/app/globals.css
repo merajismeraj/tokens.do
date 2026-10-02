@@ -53,6 +53,8 @@ main.container { display: grid; gap: 24px; padding-top: 8px; padding-bottom: 56p
 /* ── hero ───────────────────────────────────────────────── */
 .hero { padding: 40px 0 0; }
 .hero h1 { font-size: clamp(56px, 13vw, 120px); line-height: 0.9; letter-spacing: -0.07em; margin: 0 0 20px; font-weight: 800; }
+.tld { color: var(--accent); }
+.tld .dot { margin: 0 -0.2em; }
 .cursor { color: var(--accent); animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 .meta { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }

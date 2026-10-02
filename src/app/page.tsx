@@ -30,7 +30,8 @@ export default async function LeaderboardPage() {
     <>
       <section className="hero">
         <h1>
-          tokens<span className="cursor">_</span>
+          tokens<span className="tld"><span className="dot">.</span>do</span>
+          <span className="cursor">_</span>
         </h1>
         <p className="meta">
           <span>{formatCount(ranked)} ranked</span>
@@ -103,7 +104,7 @@ function LockedCta({ hidden }: { hidden: number }) {
   const cta = (
     <div className="locked-cta">
       <p>
-        <strong>+{formatCount(hidden)}</strong> builders hidden
+        <strong>+{formatCount(hidden)}</strong> builders
       </p>
       <SignInButton label="Sign in with X to unlock" />
     </div>
