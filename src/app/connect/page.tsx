@@ -30,10 +30,14 @@ export default async function ConnectPage() {
   return (
     <>
       <section className="hero">
-        <h1>Connect your models</h1>
-        <p className="muted">
-          Add every OpenAI and Anthropic org you own — usage is summed into one rank.{" "}
-          <Link href="/">Back to the board →</Link>
+        <h1>
+          Connect models<span className="cursor">_</span>
+        </h1>
+        <p className="meta">
+          <span>Multiple orgs sum into one rank</span>
+          <span>
+            <Link href="/">View board</Link>
+          </span>
         </p>
       </section>
 
@@ -66,15 +70,15 @@ export default async function ConnectPage() {
                     <span className={`chip ${c.provider}`}>{providers[c.provider].name}</span>
                     {c.orgName && <span className="muted small"> {c.orgName}</span>}
                   </td>
-                  <td className="mono muted">…{c.keyHint}</td>
+                  <td className="muted">…{c.keyHint}</td>
                   <td className="hide-sm small">
                     {c.status === "invalid" ? (
                       <span className="error" title={c.lastError ?? undefined}>
-                        Key rejected — reconnect
+                        Key rejected
                       </span>
                     ) : c.lastError ? (
                       <span className="warn" title={c.lastError}>
-                        Sync error, retrying daily
+                        Retrying
                       </span>
                     ) : c.lastSyncedAt ? (
                       <span className="muted">Synced {formatRelative(c.lastSyncedAt)}</span>
@@ -82,7 +86,7 @@ export default async function ConnectPage() {
                       <span className="muted">Pending</span>
                     )}
                   </td>
-                  <td className="num mono strong">{formatTokens(totalById.get(c.id) ?? 0n)}</td>
+                  <td className="num strong">{formatTokens(totalById.get(c.id) ?? 0n)}</td>
                   <td className="num">
                     <form action={removeConnection}>
                       <input type="hidden" name="id" value={c.id} />

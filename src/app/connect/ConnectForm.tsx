@@ -39,19 +39,19 @@ export function ConnectForm({ options }: { options: ProviderOption[] }) {
         spellCheck={false}
         required
         placeholder={`${provider.keyPrefix}…`}
-        className="input mono"
+        className="input"
       />
       <p className="muted small">
         {provider.keyHelp}{" "}
         <a href={provider.keyHelpUrl} target="_blank" rel="noreferrer">
-          Get a key ↗
+          Get key ↗
         </a>
       </p>
       <button className="btn primary" disabled={pending}>
-        {pending ? "Verifying & syncing…" : `Connect ${provider.name}`}
+        {pending ? "Verifying…" : `Connect ${provider.name}`}
       </button>
       {state.error && <p className="error">{state.error}</p>}
-      {state.ok && <p className="success">Connected. Your usage is synced — see your projected rank on the board.</p>}
+      {state.ok && <p className="success">Connected. Check your projected rank on the board.</p>}
     </form>
   );
 }

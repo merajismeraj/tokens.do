@@ -25,7 +25,7 @@ export const anthropic: ProviderAdapter = {
   id: "anthropic",
   name: "Anthropic",
   keyPrefix: "sk-ant-admin",
-  keyHelp: "Create an Admin API key in the Claude Console under Settings → Admin keys.",
+  keyHelp: "Needs an Admin API key.",
   keyHelpUrl: "https://console.anthropic.com/settings/admin-keys",
 
   async identify(apiKey) {

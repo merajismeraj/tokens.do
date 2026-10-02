@@ -32,7 +32,7 @@ export const openai: ProviderAdapter = {
   id: "openai",
   name: "OpenAI",
   keyPrefix: "sk-admin-",
-  keyHelp: "Create an Admin key (read-only is enough) under Organization → Admin keys.",
+  keyHelp: "Needs a read-only Admin key.",
   keyHelpUrl: "https://platform.openai.com/settings/organization/admin-keys",
 
   // OpenAI has no "who am I" endpoint for admin keys. The org's oldest project
