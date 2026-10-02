@@ -8,6 +8,9 @@ MIGRATE_URL="${tokens_DATABASE_URL_UNPOOLED:-$DATABASE_URL}"
 
 npx prisma generate
 
+# Hard stop before any write if this isn't tokens.do's own database.
+MIGRATE_URL="$MIGRATE_URL" node scripts/db-guard.mjs
+
 # Baseline: a database created earlier with `prisma db push` already has every table but no
 # migration history, so 0001_init would fail with "relation already exists". If the live
 # database exactly matches the schema, record 0001_init as applied instead of running it.
