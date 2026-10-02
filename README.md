@@ -64,7 +64,7 @@ Migrations live in `prisma/migrations` and are applied automatically on every Ve
 npm run db:migration -- <name>
 ```
 
-On Vercel the Neon integration supplies `tokens_DATABASE_URL` (pooled, used at runtime) and `tokens_DATABASE_URL_UNPOOLED` (direct, used for migrations). Locally, plain `DATABASE_URL` works.
+On Vercel the Neon integration supplies `<prefix>_DATABASE_URL` (pooled, used at runtime) and `<prefix>_DATABASE_URL_UNPOOLED` (direct, used for migrations); the prefix is detected automatically. Locally, plain `DATABASE_URL` works. Builds refuse any database containing tables or migrations that aren't tokens.do's (`scripts/db-guard.mjs`).
 
 ## Tests
 

@@ -1,10 +1,11 @@
 #!/bin/sh
 # Vercel build: generate the client, apply pending migrations, build.
-# Neon's Vercel integration was connected with the "tokens_" env prefix, so prefer those vars.
 set -e
-export DATABASE_URL="${tokens_DATABASE_URL:-$DATABASE_URL}"
+# The Neon integration's variable prefix depends on how the store was connected; resolve it.
+DATABASE_URL="$(node scripts/db-url.mjs DATABASE_URL)" || { echo "No Postgres DATABASE_URL (or *_DATABASE_URL) found." >&2; exit 1; }
+export DATABASE_URL
 # Migrations take advisory locks, which need a direct (unpooled) connection.
-MIGRATE_URL="${tokens_DATABASE_URL_UNPOOLED:-$DATABASE_URL}"
+MIGRATE_URL="$(node scripts/db-url.mjs DATABASE_URL_UNPOOLED || printf '%s' "$DATABASE_URL")"
 
 npx prisma generate
 
@@ -15,7 +16,9 @@ MIGRATE_URL="$MIGRATE_URL" node scripts/db-guard.mjs
 # migration history, so 0001_init would fail with "relation already exists". If the live
 # database exactly matches the schema, record 0001_init as applied instead of running it.
 # Any real difference falls through to `migrate deploy`, which fails loudly and changes nothing.
-if ! DATABASE_URL="$MIGRATE_URL" npx prisma migrate status >/dev/null 2>&1; then
+# (An empty database needs no baseline; migrate deploy below creates everything.)
+if ! npx prisma migrate diff --from-url "$MIGRATE_URL" --to-empty --exit-code >/dev/null 2>&1 \
+   && ! DATABASE_URL="$MIGRATE_URL" npx prisma migrate status >/dev/null 2>&1; then
   if npx prisma migrate diff --from-url "$MIGRATE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code >/dev/null 2>&1; then
     echo "Database already matches the schema; recording 0001_init as applied (baseline)."
     DATABASE_URL="$MIGRATE_URL" npx prisma migrate resolve --rolled-back 0001_init >/dev/null 2>&1 || true
