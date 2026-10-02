@@ -182,3 +182,20 @@ model RateLimit {
   @@id([key, windowStart])
   @@index([windowStart])
 }
+
+// ── Visitor count ──────────────────────────────────────────────────────────
+
+/// One row per visitor per UTC day. The hash is a keyed HMAC of day + IP + user agent, so no IP is stored
+/// and visitors can't be linked across days. Rows older than yesterday are pruned by the daily cron.
+model Visitor {
+  day  DateTime @db.Date
+  hash String
+
+  @@id([day, hash])
+}
+
+/// Unique visitors per UTC day. The footer shows the sum (all-time visits) and today's count.
+model VisitDaily {
+  day   DateTime @id @db.Date
+  count Int
+}

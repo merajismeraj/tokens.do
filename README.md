@@ -78,6 +78,10 @@ TEST_DATABASE_URL=postgres://… npm test             # + end-to-end pipeline ag
 
 The rank card's **Share on 𝕏** button (and the CLI after a sync) opens X's composer with "I'm world #N token maxxer!" and a link to `tokens.do/u/<handle>`. That page's `opengraph-image.tsx` renders a 1200×630 card with the user's rank and token count, which X shows under the post. The card uses JetBrains Mono from `assets/fonts` (OFL, see `assets/fonts/OFL.txt`).
 
+## Visitor count
+
+The footer shows unique visitors per UTC day, summed, plus today's count. It stays hidden until the total reaches 100 (`MIN_VISITORS_SHOWN` in `src/components/VisitCount.tsx`). A client-side beacon (`src/components/VisitBeacon.tsx`) posts to `/api/visit` once per tab session, so crawlers and link unfurlers that don't run JS aren't counted; headless and bot user agents are dropped server-side. Each visitor is stored as an HMAC of day + IP + user agent (`Visitor`), so no IPs are kept and visits can't be linked across days. The daily cron prunes those hashes; only the per-day totals (`VisitDaily`) are kept.
+
 ## Rate limits
 
 Counters live in Postgres (`RateLimit`), not memory, so they hold across serverless instances. They're defined in `src/lib/rate-limit.ts`:
@@ -89,6 +93,7 @@ Counters live in Postgres (`RateLimit`), not memory, so they hold across serverl
 | `POST /api/cli/usage` | 60 / hour per device |
 | `GET /api/cli/me` | 120 / hour per device |
 | Approving a code at `/cli` | 20 / 10 min per user |
+| `POST /api/visit` (visitor beacon) | 30 / hour per IP |
 
 ## Publishing the CLI
 

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { buildSnapshot } from "@/lib/leaderboard";
 import { syncAll } from "@/lib/sync";
+import { pruneVisitors } from "@/lib/visits";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -20,6 +21,7 @@ export async function GET(req: Request) {
   const started = Date.now();
   const results = await syncAll();
   const snapshot = await buildSnapshot();
+  await pruneVisitors().catch(() => undefined);
 
   return Response.json({
     snapshotId: snapshot.id,

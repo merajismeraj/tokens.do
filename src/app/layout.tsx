@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { Header } from "@/components/Header";
+import { VisitBeacon } from "@/components/VisitBeacon";
+import { VisitCount } from "@/components/VisitCount";
 import "./globals.css";
 
 const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "700", "800"], variable: "--font-mono" });
@@ -25,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="footer">
           <div className="container bar">
             <span>re-ranked daily 00:00 utc · keys encrypted at rest</span>
+            <VisitCount />
             <span>
               powered by{" "}
               <a href="https://code.in" target="_blank" rel="noopener noreferrer">
@@ -33,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </span>
           </div>
         </footer>
+        <VisitBeacon />
       </body>
     </html>
   );
