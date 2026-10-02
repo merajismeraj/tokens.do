@@ -7,6 +7,7 @@ import { RankDelta } from "@/components/RankDelta";
 import { BadgeLegend, SourceChip } from "@/components/SourceChip";
 import { config } from "@/lib/config";
 import { nextRefreshAt } from "@/lib/dates";
+import { shareOnXUrl, shareText } from "@/lib/share";
 import { formatCount, formatRelative, formatTokens } from "@/lib/format";
 import { getLatestLeaderboard, getStanding, type Standing } from "@/lib/leaderboard";
 
@@ -203,6 +204,15 @@ function StandingCard({ standing }: { standing: Standing }) {
       ) : (
         <p className="muted small">Official at 00:00 UTC.</p>
       )}
+      <a
+        className="btn primary share"
+        href={shareOnXUrl(standing.rank)}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={shareText(standing.rank)}
+      >
+        Share on 𝕏
+      </a>
     </div>
   );
 }
