@@ -21,6 +21,7 @@ Global leaderboard of the biggest LLM token spenders.
 | Daily usage sync, one row per day per model | `src/lib/sync.ts` → `UsageDaily` |
 | Ranking snapshot (competition ranking, rank movement, top model) | `src/lib/leaderboard.ts` |
 | 24h refresh: sync all keys, then build a snapshot | `src/app/api/cron/refresh/route.ts`, `vercel.json` |
+| Public rank page and its share-card image (`/u/<handle>`) | `src/app/u/[handle]/`, `src/lib/profile.ts`, `src/lib/share.ts` |
 
 **Ranking metric:** total tokens over a trailing `LEADERBOARD_WINDOW_DAYS` (default 30). Total means input (including cache reads and writes) plus output. A rolling window keeps the board competitive. An all-time board stops moving and favors whoever joined first.
 
@@ -72,6 +73,10 @@ On Vercel the Neon integration supplies `<prefix>_DATABASE_URL` (pooled, used at
 npm test                                            # unit tests
 TEST_DATABASE_URL=postgres://… npm test             # + end-to-end pipeline against a scratch DB
 ```
+
+## Sharing
+
+The rank card's **Share on 𝕏** button (and the CLI after a sync) opens X's composer with "I'm world #N token maxxer!" and a link to `tokens.do/u/<handle>`. That page's `opengraph-image.tsx` renders a 1200×630 card with the user's rank and token count, which X shows under the post. The card uses JetBrains Mono from `assets/fonts` (OFL, see `assets/fonts/OFL.txt`).
 
 ## Rate limits
 

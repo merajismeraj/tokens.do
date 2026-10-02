@@ -5,11 +5,17 @@ export function shareText(rank: number): string {
   return `I'm world #${rank.toLocaleString("en-US")} token maxxer!`;
 }
 
+/** The user's public rank page. X renders its preview image (the rank card) under the post. */
+export function profileUrl(handle: string): string {
+  return `${SITE_URL}/u/${encodeURIComponent(handle)}`;
+}
+
 /**
  * X's post composer, pre-filled. X appends the URL to the text and renders it as a link card.
  * Encoded with encodeURIComponent (not URLSearchParams) so spaces are %20 and "#" is %23 —
  * an unencoded "#" would cut the text off at the rank.
  */
-export function shareOnXUrl(rank: number): string {
-  return `https://x.com/intent/post?text=${encodeURIComponent(shareText(rank))}&url=${encodeURIComponent(SITE_URL)}`;
+export function shareOnXUrl(rank: number, handle?: string | null): string {
+  const url = handle ? profileUrl(handle) : SITE_URL;
+  return `https://x.com/intent/post?text=${encodeURIComponent(shareText(rank))}&url=${encodeURIComponent(url)}`;
 }
