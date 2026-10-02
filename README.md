@@ -3,7 +3,10 @@
 Global leaderboard of the biggest LLM token spenders.
 
 1. **Sign in with X**: your handle and avatar show on the board.
-2. **Connect models**: add one or more OpenAI or Anthropic orgs with an admin (usage-read) key.
+2. **Connect usage**, any mix of:
+   - `npx tokens.do`: reads local Claude Code / Codex logs. No keys needed, and it works for Max, Pro and Plus subscriptions. Badge: **CLI** (self-reported).
+   - an OpenAI or Anthropic admin key. Badge: **KEY** (verified).
+   - an OpenRouter Management key. Badge: **OR** (verified).
 3. **Get ranked**: usage is pulled daily and everyone is re-ranked at 00:00 UTC.
 
 ## How it works
@@ -11,7 +14,10 @@ Global leaderboard of the biggest LLM token spenders.
 | Piece | Where |
 | --- | --- |
 | X OAuth 2.0 (Auth.js v5, Prisma adapter, DB sessions) | `src/auth.ts` |
-| Provider adapters (OpenAI Usage API, Anthropic Usage & Cost API) | `src/lib/providers/*` |
+| Key adapters (OpenAI Usage API, Anthropic Usage & Cost API, OpenRouter Activity API) | `src/lib/providers/*` |
+| Source badges (KEY / OR / CLI) | `src/lib/sources.ts`, `src/components/SourceChip.tsx` |
+| CLI package (`npx tokens.do`): log readers, device login, upload | `cli/` |
+| CLI server side: device login, token auth, upload checks | `src/app/api/cli/*`, `src/app/cli`, `src/lib/cli-*.ts` |
 | Daily usage sync, one row per day per model | `src/lib/sync.ts` → `UsageDaily` |
 | Ranking snapshot (competition ranking, rank movement, top model) | `src/lib/leaderboard.ts` |
 | 24h refresh: sync all keys, then build a snapshot | `src/app/api/cron/refresh/route.ts`, `vercel.json` |
@@ -19,6 +25,15 @@ Global leaderboard of the biggest LLM token spenders.
 **Ranking metric:** total tokens over a trailing `LEADERBOARD_WINDOW_DAYS` (default 30). Total means input (including cache reads and writes) plus output. A rolling window keeps the board competitive. An all-time board stops moving and favors whoever joined first.
 
 **Between refreshes:** a user who connects mid-day sees a *projected* rank against the latest snapshot. It becomes official at the next refresh.
+
+**CLI uploads** are self-reported, so they are bounded rather than trusted:
+- Rows must fall inside the backfill window.
+- Each device, source and day is capped at `CLI_DAILY_TOKEN_CAP` tokens.
+- Every machine gets its own token, so several machines add up.
+- A re-sync replaces only the days it sends, so pruned local logs never erase history.
+- Revoking a device deletes its uploads.
+
+**Codex logs** repeat cumulative snapshots, so the reader counts only increases in the session total. **Claude Code logs** repeat the same response on several lines, so the reader keeps one copy per message id and request id. Summing raw lines over-counted a real session 2.4×.
 
 **Anti-gaming:** only one account can claim each provider org, so the same org can't be counted twice. Orgs are matched by an HMAC fingerprint of the Anthropic org id or the OpenAI default-project id.
 
@@ -47,6 +62,14 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/refresh
 npm test                                            # unit tests
 TEST_DATABASE_URL=postgres://… npm test             # + end-to-end pipeline against a scratch DB
 ```
+
+## Publishing the CLI
+
+```bash
+cd cli && npm publish   # package name: tokens.do
+```
+
+Point it at another server with `TOKENS_DO_URL=https://staging.example npx tokens.do`.
 
 ## Adding a provider
 

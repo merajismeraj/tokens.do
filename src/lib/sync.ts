@@ -15,7 +15,10 @@ export interface SyncResult {
 /** Pulls daily usage for one connection and replaces the re-synced date range. */
 export async function syncConnection(conn: Connection, now = new Date()): Promise<SyncResult> {
   const adapter = getProvider(conn.provider);
-  if (!adapter) return { connectionId: conn.id, ok: false, rows: 0, error: `Unknown provider ${conn.provider}` };
+  if (!adapter || !conn.encryptedKey) {
+    return { connectionId: conn.id, ok: false, rows: 0, error: `${conn.provider} is not a pull source` };
+  }
+  const encryptedKey = conn.encryptedKey;
 
   const floor = startOfUtcDay(addDays(now, -config.backfillDays));
   const from = conn.lastSyncedAt
@@ -23,7 +26,7 @@ export async function syncConnection(conn: Connection, now = new Date()): Promis
     : floor;
 
   try {
-    const usage = await adapter.fetchDailyUsage(decryptSecret(conn.encryptedKey), from, now);
+    const usage = await adapter.fetchDailyUsage(decryptSecret(encryptedKey), from, now);
     await db.$transaction([
       db.usageDaily.deleteMany({ where: { connectionId: conn.id, date: { gte: from } } }),
       db.usageDaily.createMany({
@@ -57,7 +60,11 @@ export async function syncConnection(conn: Connection, now = new Date()): Promis
 }
 
 export async function syncAll(now = new Date()): Promise<SyncResult[]> {
-  const queue = await db.connection.findMany({ where: { status: "active" }, orderBy: { lastSyncedAt: "asc" } });
+  // CLI connections have no key: devices push their own usage via /api/cli/usage.
+  const queue = await db.connection.findMany({
+    where: { status: "active", encryptedKey: { not: null } },
+    orderBy: { lastSyncedAt: "asc" },
+  });
   const results: SyncResult[] = [];
   const workers = Array.from({ length: config.syncConcurrency }, async () => {
     for (let conn = queue.shift(); conn; conn = queue.shift()) {

@@ -36,12 +36,13 @@ export async function Header() {
   );
 }
 
-export function SignInButton({ label = "Sign in with X" }: { label?: string }) {
+export function SignInButton({ label = "Sign in with X", redirectTo = "/connect" }: { label?: string; redirectTo?: string }) {
   return (
     <form
       action={async () => {
         "use server";
-        await signIn("twitter", { redirectTo: "/connect" });
+        // Only same-site paths, so the prop can never become an open redirect.
+        await signIn("twitter", { redirectTo: redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/connect" });
       }}
     >
       <button className="btn primary">{label}</button>

@@ -6,6 +6,7 @@ import { config } from "@/lib/config";
 import { encryptSecret, fingerprint } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { getProvider, ProviderAuthError, type ProviderId } from "@/lib/providers";
+import { normalizeUserCode } from "@/lib/cli-auth";
 import { syncConnection } from "@/lib/sync";
 
 export interface ConnectState {
@@ -40,7 +41,12 @@ export async function addConnection(_prev: ConnectState, form: FormData): Promis
   if (existing && existing.userId !== userId) {
     return { error: `This ${adapter.name} organization is already claimed by another account.` };
   }
-  if (!existing && (await db.connection.count({ where: { userId } })) >= config.maxConnectionsPerUser) {
+  // OpenRouter has no account id, so cap it at one per user to stop the same account counting twice.
+  if (!existing && adapter.id === "openrouter" && (await db.connection.count({ where: { userId, provider: "openrouter" } })) > 0) {
+    return { error: "You already have an OpenRouter account connected. Remove it first to switch keys." };
+  }
+  const keyConnections = await db.connection.count({ where: { userId, encryptedKey: { not: null } } });
+  if (!existing && keyConnections >= config.maxConnectionsPerUser) {
     return { error: `You can connect up to ${config.maxConnectionsPerUser} organizations.` };
   }
 
@@ -68,4 +74,25 @@ export async function removeConnection(form: FormData) {
   await db.connection.deleteMany({ where: { id: String(form.get("id")), userId: session.user.id } });
   revalidatePath("/connect");
   revalidatePath("/");
+}
+
+/** Revokes the device's token; its uploaded usage goes with it. */
+export async function revokeDevice(form: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) return;
+  await db.cliDevice.deleteMany({ where: { id: String(form.get("id")), userId: session.user.id } });
+  revalidatePath("/connect");
+  revalidatePath("/");
+}
+
+/** Approves a pending `tokens.do login` for the signed-in user. */
+export async function approveDevice(_prev: ConnectState, form: FormData): Promise<ConnectState> {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Sign in first." };
+  const userCode = normalizeUserCode(String(form.get("userCode") ?? ""));
+  const { count } = await db.deviceAuth.updateMany({
+    where: { userCode, userId: null, expiresAt: { gt: new Date() } },
+    data: { userId: session.user.id, approvedAt: new Date() },
+  });
+  return count === 1 ? { ok: true } : { error: "That code is invalid or expired. Run `npx tokens.do login` again." };
 }

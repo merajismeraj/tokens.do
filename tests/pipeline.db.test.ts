@@ -28,6 +28,7 @@ describe.skipIf(!url)("pipeline (db)", () => {
     };
     const { db } = mod;
     await db.leaderboardSnapshot.deleteMany();
+    await db.deviceAuth.deleteMany();
     await db.user.deleteMany();
   });
 
@@ -126,5 +127,81 @@ describe.skipIf(!url)("pipeline (db)", () => {
 
     const nobody = await db.user.create({ data: { handle: "nobody" } });
     expect(await lb.getStanding(nobody.id, board2.snapshot.id, now)).toEqual({ kind: "unranked", hasConnections: false });
+  });
+
+  it("CLI: device login, upload, per-device sums, rank, revoke", async () => {
+    vi.unstubAllGlobals();
+    const { db, lb } = mod;
+    const deviceRoute = await import("@/app/api/cli/device/route");
+    const tokenRoute = await import("@/app/api/cli/token/route");
+    const usageRoute = await import("@/app/api/cli/usage/route");
+    const meRoute = await import("@/app/api/cli/me/route");
+    const post = (body: unknown, token?: string) =>
+      new Request("http://test.local/api/cli", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(body),
+      });
+
+    const erin = await db.user.create({ data: { handle: "erin", name: "Erin" } });
+
+    async function loginDevice(name: string) {
+      const start = await (await deviceRoute.POST(post({ deviceName: name }))).json();
+      expect(start.user_code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+      expect(start.verification_uri_complete).toBe(`http://test.local/cli?code=${start.user_code}`);
+
+      const pending = await tokenRoute.POST(post({ device_code: start.device_code }));
+      expect(await pending.json()).toEqual({ error: "authorization_pending" });
+
+      // What the /cli approve action does for the signed-in user.
+      await db.deviceAuth.update({ where: { userCode: start.user_code }, data: { userId: erin.id, approvedAt: new Date() } });
+
+      const done = await tokenRoute.POST(post({ device_code: start.device_code }));
+      const body = await done.json();
+      expect(body).toMatchObject({ handle: "erin", device: name });
+      expect(body.token).toMatch(/^tdo_/);
+
+      // The device code is single-use.
+      expect(await (await tokenRoute.POST(post({ device_code: start.device_code }))).json()).toEqual({ error: "expired_token" });
+      return body.token as string;
+    }
+
+    const laptop = await loginDevice("laptop");
+    const desktop = await loginDevice("desktop");
+    expect(await db.cliDevice.findFirst({ where: { name: "laptop" } })).not.toHaveProperty("token");
+
+    const day = (date: string, model: string, inputTokens: number, outputTokens: number) => ({ date, model, inputTokens, outputTokens, cachedTokens: 0 });
+    const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+
+    expect((await usageRoute.POST(post({ provider: "claude_code", days: [] }, "tdo_bogus"))).status).toBe(401);
+    expect((await usageRoute.POST(post({ provider: "claude_code", days: [day("2020-01-01", "x", 1, 1)] }, laptop))).status).toBe(400);
+
+    let res = await usageRoute.POST(post({ provider: "claude_code", days: [day(today, "claude-opus-4", 4000, 1000), day(yesterday, "claude-opus-4", 1000, 0)] }, laptop));
+    expect(await res.json()).toMatchObject({ ok: true, days: 2, totalTokens: "6000" });
+    // Re-sync replaces only the days sent; yesterday is kept.
+    res = await usageRoute.POST(post({ provider: "claude_code", days: [day(today, "claude-opus-4", 5000, 1000)] }, laptop));
+    expect(res.status).toBe(200);
+    await usageRoute.POST(post({ provider: "codex", days: [day(today, "gpt-5-codex", 2000, 0)] }, laptop));
+    await usageRoute.POST(post({ provider: "claude_code", days: [day(today, "claude-sonnet-4", 3000, 0)] }, desktop));
+
+    const agg = await db.usageDaily.aggregate({ where: { connection: { userId: erin.id } }, _sum: { totalTokens: true } });
+    expect(agg._sum.totalTokens).toBe(12_000n); // 6000 + 1000 (laptop CC) + 2000 (codex) + 3000 (desktop)
+    expect(await db.connection.count({ where: { userId: erin.id } })).toBe(3);
+
+    const me = await (await meRoute.GET(new Request("http://test.local/api/cli/me", { headers: { authorization: `Bearer ${laptop}` } }))).json();
+    expect(me).toMatchObject({ handle: "erin", device: "laptop", standing: { kind: "provisional", totalTokens: "12000" } });
+
+    await lb.buildSnapshot(new Date(now.getTime() + 2000));
+    const board = (await lb.getLatestLeaderboard())!;
+    const erinEntry = board.entries.find((e) => e.user.handle === "erin")!;
+    expect(erinEntry.totalTokens).toBe(12_000n);
+    expect([...erinEntry.providers].sort()).toEqual(["claude_code", "codex"]);
+    expect(erinEntry.topModel).toBe("claude-opus-4");
+
+    // Revoking a device deletes its uploads and invalidates its token.
+    await db.cliDevice.deleteMany({ where: { name: "desktop", userId: erin.id } });
+    const after = await db.usageDaily.aggregate({ where: { connection: { userId: erin.id } }, _sum: { totalTokens: true } });
+    expect(after._sum.totalTokens).toBe(9_000n);
+    expect((await usageRoute.POST(post({ provider: "claude_code", days: [] }, desktop))).status).toBe(401);
   });
 });

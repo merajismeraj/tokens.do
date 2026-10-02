@@ -16,4 +16,6 @@ export const config = {
   maxConnectionsPerUser: 10,
   snapshotsToKeep: 30,
   syncConcurrency: 4,
+  /** Upper bound on self-reported tokens per device, source and day. Heavy agent users with cache reads can pass 1B/day. */
+  cliDailyCap: BigInt(intEnv("CLI_DAILY_TOKEN_CAP", 20_000_000_000)),
 };

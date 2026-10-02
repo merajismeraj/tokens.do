@@ -4,11 +4,11 @@ import { auth } from "@/auth";
 import { SignInButton } from "@/components/Header";
 import { ProfileLink } from "@/components/ProfileLink";
 import { RankDelta } from "@/components/RankDelta";
+import { BadgeLegend, SourceChip } from "@/components/SourceChip";
 import { config } from "@/lib/config";
 import { nextRefreshAt } from "@/lib/dates";
 import { formatCount, formatRelative, formatTokens } from "@/lib/format";
 import { getLatestLeaderboard, getStanding, type Standing } from "@/lib/leaderboard";
-import { providers } from "@/lib/providers";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +39,7 @@ export default async function LeaderboardPage() {
           {board && <span>{formatTokens(board.snapshot.totalTokens)} tokens tracked</span>}
           <span>refresh {formatRelative(nextRefreshAt(now), now)}</span>
         </p>
+        <BadgeLegend />
       </section>
 
       {standing ? <StandingCard standing={standing} /> : <Steps />}
@@ -67,11 +68,9 @@ export default async function LeaderboardPage() {
                   <td>
                     <ProfileLink user={e.user} />
                   </td>
-                  <td className="hide-sm">
+                  <td className="hide-sm sources">
                     {e.providers.map((p) => (
-                      <span key={p} className={`chip ${p}`}>
-                        {providers[p].name}
-                      </span>
+                      <SourceChip key={p} provider={p} />
                     ))}
                   </td>
                   <td className="hide-sm muted">{e.topModel ?? "—"}</td>
@@ -161,7 +160,7 @@ function Steps() {
         <span className="step-n">01</span> Sign in with X
       </li>
       <li>
-        <span className="step-n">02</span> Connect OpenAI / Anthropic
+        <span className="step-n">02</span> Run <code>npx tokens.do</code> or add a key
       </li>
       <li>
         <span className="step-n">03</span> Get ranked, daily

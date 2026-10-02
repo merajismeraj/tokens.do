@@ -22,6 +22,7 @@ model User {
   sessions    Session[]
   connections Connection[]
   entries     LeaderboardEntry[]
+  devices     CliDevice[]
 }
 
 model Account {
@@ -59,9 +60,13 @@ model VerificationToken {
 
 // ── Model provider connections ─────────────────────────────────────────────
 
+/// Where usage comes from. The badge each one gets is defined in src/lib/sources.ts.
 enum Provider {
-  openai
-  anthropic
+  openai // admin key (verified)
+  anthropic // admin key (verified)
+  openrouter // management key (verified)
+  claude_code // CLI, local logs (self-reported)
+  codex // CLI, local logs (self-reported)
 }
 
 enum ConnectionStatus {
@@ -73,20 +78,49 @@ model Connection {
   id             String           @id @default(cuid())
   userId         String
   provider       Provider
-  encryptedKey   String           @db.Text // AES-256-GCM, see src/lib/crypto.ts
-  keyHint        String // last 4 chars, for display only
-  orgFingerprint String // HMAC of the provider org id — one org, one owner
+  encryptedKey   String?          @db.Text // AES-256-GCM, see src/lib/crypto.ts. Null for CLI uploads.
+  keyHint        String // last 4 chars of the key, or the CLI device name
+  orgFingerprint String // HMAC of the provider org id (one org, one owner) or of the CLI device
+  deviceId       String?
   orgName        String?
   status         ConnectionStatus @default(active)
   lastSyncedAt   DateTime?
   lastError      String?
   createdAt      DateTime         @default(now())
 
-  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  usage UsageDaily[]
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device CliDevice?   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  usage  UsageDaily[]
 
   @@unique([provider, orgFingerprint])
   @@index([userId])
+}
+
+// ── CLI (npx tokens.do) ────────────────────────────────────────────────────
+
+/// A machine running the CLI. Each device uploads its own rows, so several machines sum up.
+model CliDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  tokenHash  String    @unique // sha256 of the bearer token; the token itself is never stored
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connections Connection[]
+
+  @@index([userId])
+}
+
+/// Pending `tokens.do login`: the CLI polls with deviceCode while the user approves userCode in the browser.
+model DeviceAuth {
+  deviceCodeHash String    @id
+  userCode       String    @unique
+  deviceName     String
+  userId         String?
+  approvedAt     DateTime?
+  expiresAt      DateTime
 }
 
 model UsageDaily {

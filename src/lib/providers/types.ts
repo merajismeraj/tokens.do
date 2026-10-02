@@ -1,4 +1,5 @@
-export type ProviderId = "openai" | "anthropic";
+/** Providers we pull from with a stored key. CLI sources push instead (see src/lib/sources.ts). */
+export type ProviderId = "openai" | "anthropic" | "openrouter";
 
 export interface DailyUsage {
   /** UTC day, YYYY-MM-DD */

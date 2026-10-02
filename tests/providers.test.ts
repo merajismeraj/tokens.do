@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { anthropic } from "@/lib/providers/anthropic";
 import { openai } from "@/lib/providers/openai";
+import { openrouter } from "@/lib/providers/openrouter";
 import { ProviderAuthError } from "@/lib/providers/types";
 
 const json = (body: unknown, status = 200) =>
@@ -114,5 +115,33 @@ describe("anthropic adapter", () => {
   it("identifies the org via /organizations/me", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ id: "org_123", name: "Acme" })));
     await expect(anthropic.identify("sk-ant-admin-x")).resolves.toEqual({ orgId: "org_123", orgName: "Acme" });
+  });
+});
+
+describe("openrouter adapter", () => {
+  it("maps activity rows to daily usage within the range", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      json({
+        data: [
+          { date: "2026-09-01", model: "anthropic/claude-opus-4", prompt_tokens: 900, completion_tokens: 100, requests: 3 },
+          { date: "2026-09-01", model: "anthropic/claude-opus-4", prompt_tokens: 100, completion_tokens: 0 }, // second endpoint
+          { date: "2026-09-02", model: "openai/gpt-5", prompt_tokens: 50, completion_tokens: 5 },
+          { date: "2026-08-15", model: "openai/gpt-5", prompt_tokens: 999, completion_tokens: 9 },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const rows = await openrouter.fetchDailyUsage("sk-or-v1-x", start, end);
+    expect(rows).toEqual([
+      { date: "2026-09-01", model: "anthropic/claude-opus-4", inputTokens: 1000n, outputTokens: 100n, cachedTokens: 0n },
+      { date: "2026-09-02", model: "openai/gpt-5", inputTokens: 50n, outputTokens: 5n, cachedTokens: 0n },
+    ]);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://openrouter.ai/api/v1/activity");
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer sk-or-v1-x");
+  });
+
+  it("rejects a non-management key", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ error: { message: "Only management keys" } }, 403)));
+    await expect(openrouter.identify("sk-or-v1-regular")).rejects.toBeInstanceOf(ProviderAuthError);
   });
 });
