@@ -43,7 +43,7 @@ export default async function LeaderboardPage() {
         <BadgeLegend />
       </section>
 
-      {standing ? <StandingCard standing={standing} /> : <Steps />}
+      {standing ? <StandingCard standing={standing} handle={session?.user?.handle ?? null} /> : <Steps />}
 
       {!board || board.entries.length === 0 ? (
         <div className="card empty">First board drops at 00:00 UTC. Connect now to be on it.</div>
@@ -170,7 +170,7 @@ function Steps() {
   );
 }
 
-function StandingCard({ standing }: { standing: Standing }) {
+function StandingCard({ standing, handle }: { standing: Standing; handle: string | null }) {
   if (standing.kind === "unranked") {
     return (
       <div className="card standing">
@@ -206,7 +206,7 @@ function StandingCard({ standing }: { standing: Standing }) {
       )}
       <a
         className="btn primary share"
-        href={shareOnXUrl(standing.rank)}
+        href={shareOnXUrl(standing.rank, handle)}
         target="_blank"
         rel="noopener noreferrer"
         title={shareText(standing.rank)}

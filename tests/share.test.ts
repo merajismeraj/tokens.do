@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shareOnXUrl, shareText } from "@/lib/share";
+import { profileUrl, shareOnXUrl, shareText } from "@/lib/share";
 
 describe("share on X", () => {
   it("uses the requested wording with a formatted rank", () => {
@@ -14,5 +14,12 @@ describe("share on X", () => {
     expect(u.searchParams.get("url")).toBe("https://tokens.do");
     expect(u.hash).toBe(""); // a raw "#" would truncate the text
     expect(shareOnXUrl(42)).not.toContain("+");
+  });
+
+  it("links to the user's rank page when the handle is known", () => {
+    const u = new URL(shareOnXUrl(3, "meraj"));
+    expect(u.searchParams.get("text")).toBe("I'm world #3 token maxxer!");
+    expect(u.searchParams.get("url")).toBe("https://tokens.do/u/meraj");
+    expect(profileUrl("a_b")).toBe("https://tokens.do/u/a_b");
   });
 });

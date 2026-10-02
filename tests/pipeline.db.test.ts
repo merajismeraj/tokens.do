@@ -232,4 +232,17 @@ describe.skipIf(!url)("pipeline (db)", () => {
     expect(await blocked.json()).toMatchObject({ error: "rate_limited" });
     expect((await start("198.51.100.2")).status).toBe(200);
   });
+
+  it("profile: case-insensitive handle, rejects invalid handles, rank matches the board", async () => {
+    const { getProfile } = await import("@/lib/profile");
+    const board = (await mod.lb.getLatestLeaderboard())!;
+    const top = board.entries[0];
+    const p = (await getProfile(top.user.handle!.toUpperCase()))!;
+    expect(p.user.handle).toBe(top.user.handle);
+    expect(p.standing).toMatchObject({ kind: "ranked", rank: top.rank });
+    expect(p.topModel).toBe(top.topModel);
+    expect(await getProfile("no_such_user")).toBeNull();
+    expect(await getProfile("bad-handle")).toBeNull();
+    expect(await getProfile("x".repeat(16))).toBeNull();
+  });
 });

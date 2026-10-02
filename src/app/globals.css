@@ -213,3 +213,16 @@ code { font: inherit; color: var(--text); background: #141414; padding: 0 4px; w
   .board td, .board th { padding: 11px 10px; }
   .hero { padding-top: 28px; }
 }
+
+/* ── profile (/u/[handle]) ──────────────────────────────── */
+.hero .who .avatar { width: 64px; height: 64px; }
+.hero .who .name { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+.hero .who .handle { font-size: 15px; }
+.profile { align-items: flex-end; }
+.big.xl { font-size: clamp(56px, 12vw, 104px); line-height: 0.95; color: var(--accent); letter-spacing: -0.05em; }
+.big.xl .muted { color: var(--muted); letter-spacing: 0; }
+.profile .model { font-weight: 700; font-size: 15px; }
+.profile .sources { margin-left: auto; }
+.cta-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.cta-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.cta-card p { margin: 0; max-width: 560px; }
