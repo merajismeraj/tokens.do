@@ -44,7 +44,7 @@ Global leaderboard of the biggest LLM token spenders.
 ```bash
 cp .env.example .env      # fill in values
 npm install
-npm run db:push           # create tables
+npm run db:migrate        # apply migrations
 npm run dev
 ```
 
@@ -55,6 +55,16 @@ Trigger a refresh manually:
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/refresh
 ```
+
+## Database changes
+
+Migrations live in `prisma/migrations` and are applied automatically on every Vercel build (`scripts/vercel-build.sh` runs `prisma migrate deploy`). After editing `prisma/schema.prisma`, create one with:
+
+```bash
+npm run db:migration -- <name>
+```
+
+On Vercel the Neon integration supplies `<prefix>_DATABASE_URL` (pooled, used at runtime) and `<prefix>_DATABASE_URL_UNPOOLED` (direct, used for migrations); the prefix is detected automatically. Locally, plain `DATABASE_URL` works. Builds refuse any database containing tables or migrations that aren't tokens.do's (`scripts/db-guard.mjs`).
 
 ## Tests
 

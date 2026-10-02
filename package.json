@@ -10,7 +10,9 @@
     "test": "vitest run",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "vercel-build": "sh scripts/vercel-build.sh",
+    "db:migration": "prisma migrate dev --name"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
