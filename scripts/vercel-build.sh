@@ -17,6 +17,10 @@ if ! DATABASE_URL="$MIGRATE_URL" npx prisma migrate status >/dev/null 2>&1; then
     echo "Database already matches the schema; recording 0001_init as applied (baseline)."
     DATABASE_URL="$MIGRATE_URL" npx prisma migrate resolve --rolled-back 0001_init >/dev/null 2>&1 || true
     DATABASE_URL="$MIGRATE_URL" npx prisma migrate resolve --applied 0001_init
+  else
+    # Structure only (no data): what the live database lacks or has extra vs. the schema.
+    echo "Database does not match the schema. Changes needed to reach the schema:"
+    npx prisma migrate diff --from-url "$MIGRATE_URL" --to-schema-datamodel prisma/schema.prisma --script 2>&1 | grep -v '^--' | grep -v '^$' || true
   fi
 fi
 
