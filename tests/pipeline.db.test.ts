@@ -29,6 +29,7 @@ describe.skipIf(!url)("pipeline (db)", () => {
     const { db } = mod;
     await db.leaderboardSnapshot.deleteMany();
     await db.deviceAuth.deleteMany();
+    await db.rateLimit.deleteMany();
     await db.user.deleteMany();
   });
 
@@ -203,5 +204,32 @@ describe.skipIf(!url)("pipeline (db)", () => {
     const after = await db.usageDaily.aggregate({ where: { connection: { userId: erin.id } }, _sum: { totalTokens: true } });
     expect(after._sum.totalTokens).toBe(9_000n);
     expect((await usageRoute.POST(post({ provider: "claude_code", days: [] }, desktop))).status).toBe(401);
+  });
+
+  it("rate limits: atomic under concurrency, per key, 429 with Retry-After", async () => {
+    const { hit } = await import("@/lib/rate-limit");
+    const limit = { limit: 10, windowSec: 60 };
+    const results = await Promise.all(Array.from({ length: 30 }, () => hit("test:burst", limit)));
+    expect(results.filter((r) => r.ok)).toHaveLength(10);
+    expect(results.find((r) => !r.ok)!.retryAfter).toBeGreaterThan(0);
+    expect((await hit("test:other", limit)).ok).toBe(true);
+
+    const deviceRoute = await import("@/app/api/cli/device/route");
+    const start = (ip: string) =>
+      deviceRoute.POST(
+        new Request("http://test.local/api/cli/device", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-forwarded-for": `${ip}, 10.0.0.1` },
+          body: "{}",
+        }),
+      );
+    const statuses = [];
+    for (let i = 0; i < 11; i++) statuses.push((await start("203.0.113.7")).status);
+    expect(statuses.slice(0, 10).every((s) => s === 200)).toBe(true);
+    const blocked = await start("203.0.113.7");
+    expect(blocked.status).toBe(429);
+    expect(Number(blocked.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect(await blocked.json()).toMatchObject({ error: "rate_limited" });
+    expect((await start("198.51.100.2")).status).toBe(200);
   });
 });

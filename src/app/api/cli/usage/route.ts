@@ -1,4 +1,5 @@
 import { authenticateDevice } from "@/lib/cli-auth";
+import { enforce, LIMITS } from "@/lib/rate-limit";
 import { ingestCliUsage, UsageValidationError, validateCliUpload } from "@/lib/cli-usage";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const device = await authenticateDevice(req);
   if (!device) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const limited = await enforce(`usage:${device.id}`, LIMITS.usageUpload);
+  if (limited) return limited;
 
   let upload;
   try {

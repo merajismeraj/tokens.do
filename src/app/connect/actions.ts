@@ -7,6 +7,7 @@ import { encryptSecret, fingerprint } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { getProvider, ProviderAuthError, type ProviderId } from "@/lib/providers";
 import { normalizeUserCode } from "@/lib/cli-auth";
+import { hit, LIMITS } from "@/lib/rate-limit";
 import { syncConnection } from "@/lib/sync";
 
 export interface ConnectState {
@@ -89,6 +90,7 @@ export async function revokeDevice(form: FormData) {
 export async function approveDevice(_prev: ConnectState, form: FormData): Promise<ConnectState> {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sign in first." };
+  if (!(await hit(`approve:${session.user.id}`, LIMITS.approve)).ok) return { error: "Too many attempts. Try again in a few minutes." };
   const userCode = normalizeUserCode(String(form.get("userCode") ?? ""));
   const { count } = await db.deviceAuth.updateMany({
     where: { userCode, userId: null, expiresAt: { gt: new Date() } },

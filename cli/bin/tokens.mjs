@@ -63,6 +63,7 @@ function openBrowser(url) {
 
 async function login() {
   const { status, data } = await api("/api/cli/device", { body: { deviceName: hostname() } });
+  if (status === 429) throw new Error(`Too many login attempts. Try again in ${data.retry_after}s.`);
   if (status !== 200) throw new Error(`Couldn't start login (${status})`);
 
   console.log(`\n  Your code: ${c.lime(c.bold(data.user_code))}`);
@@ -78,6 +79,10 @@ async function login() {
       await saveConfig({ ...(await loadConfig()), token: res.data.token, handle: res.data.handle, server: SERVER });
       console.log(`\n  ${c.lime("✓")} Linked ${c.bold(res.data.device)} to @${res.data.handle}\n`);
       return res.data.token;
+    }
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, (res.data.retry_after ?? 5) * 1000));
+      continue;
     }
     if (res.data.error !== "authorization_pending") break;
     process.stdout.write(c.dim("."));
@@ -125,6 +130,7 @@ async function sync(args) {
   for (const s of toSend) {
     const res = await api("/api/cli/usage", { token, body: { provider: s.provider, days: s.rows } });
     if (res.status === 401) throw new Error("This machine's token was revoked. Run `npx tokens.do login`.");
+    if (res.status === 429) throw new Error(`Rate limited. Try again in ${res.data.retry_after}s.`);
     if (res.status !== 200) throw new Error(`${s.name} upload failed: ${res.data.error ?? res.status}`);
   }
   console.log(`\n  ${c.lime("✓")} Synced.`);

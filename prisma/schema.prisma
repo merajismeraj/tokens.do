@@ -170,3 +170,15 @@ model LeaderboardEntry {
   @@id([snapshotId, userId])
   @@index([snapshotId, rank])
 }
+
+// ── Rate limiting ──────────────────────────────────────────────────────────
+
+/// Fixed-window counters. In Postgres, not memory, so limits hold across serverless instances.
+model RateLimit {
+  key         String
+  windowStart DateTime
+  count       Int
+
+  @@id([key, windowStart])
+  @@index([windowStart])
+}

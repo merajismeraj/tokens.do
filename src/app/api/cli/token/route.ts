@@ -1,10 +1,14 @@
 import { db } from "@/lib/db";
 import { newCliToken, sha256 } from "@/lib/cli-auth";
+import { clientIp, enforce, LIMITS } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 /** Step 2: the CLI polls until the user approves in the browser, then receives its token exactly once. */
 export async function POST(req: Request) {
+  const limited = await enforce(`token:${clientIp(req)}`, LIMITS.tokenPoll);
+  if (limited) return limited;
+
   const body = (await req.json().catch(() => ({}))) as { device_code?: unknown };
   if (typeof body.device_code !== "string") return Response.json({ error: "invalid_request" }, { status: 400 });
 

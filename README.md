@@ -63,6 +63,18 @@ npm test                                            # unit tests
 TEST_DATABASE_URL=postgres://… npm test             # + end-to-end pipeline against a scratch DB
 ```
 
+## Rate limits
+
+Counters live in Postgres (`RateLimit`), not memory, so they hold across serverless instances. They're defined in `src/lib/rate-limit.ts`:
+
+| Endpoint | Limit |
+| --- | --- |
+| `POST /api/cli/device` (new login code) | 10 / 10 min per IP |
+| `POST /api/cli/token` (CLI polling) | 120 / min per IP |
+| `POST /api/cli/usage` | 60 / hour per device |
+| `GET /api/cli/me` | 120 / hour per device |
+| Approving a code at `/cli` | 20 / 10 min per user |
+
 ## Publishing the CLI
 
 ```bash
