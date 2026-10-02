@@ -147,6 +147,9 @@ async function status(token) {
   else {
     const label = s.kind === "ranked" ? "rank" : "projected rank (official at 00:00 UTC)";
     console.log(`  @${data.handle}: ${c.lime(c.bold(`#${s.rank}`))} of ${s.outOf} · ${fmt(Number(s.totalTokens))} tokens · ${label}`);
+    // Same text and URL as src/lib/share.ts.
+    const text = encodeURIComponent(`I'm world #${s.rank.toLocaleString("en-US")} token maxxer!`);
+    console.log(`\n  Share it: ${c.bold(`https://x.com/intent/post?text=${text}&url=${encodeURIComponent("https://tokens.do")}`)}`);
   }
   console.log(c.dim(`  ${SERVER}\n`));
 }

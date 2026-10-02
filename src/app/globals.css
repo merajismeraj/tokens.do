@@ -96,6 +96,7 @@ a:hover > .avatar { border-color: var(--accent); }
 /* ── standing ───────────────────────────────────────────── */
 .standing { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; border-color: var(--text); background: var(--bg); }
 .standing p { margin: 0; flex: 1; min-width: 200px; }
+.standing .share { margin-left: auto; }
 .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
 .big { font-size: 32px; font-weight: 800; letter-spacing: -0.04em; line-height: 1.2; }
 
