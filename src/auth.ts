@@ -16,13 +16,33 @@ interface XProfile {
   data: { id: string; name: string; username: string; profile_image_url?: string };
 }
 
+const X_ME_URL = "https://api.x.com/2/users/me?user.fields=profile_image_url";
+
+/**
+ * Auth.js parses /2/users/me without checking the status, so an X error (no API access, depleted credits,
+ * app not in a project) surfaces as an opaque OAuthProfileParseError. This logs X's actual reason.
+ */
+async function fetchXProfile(accessToken: string | undefined): Promise<XProfile> {
+  const res = await fetch(X_ME_URL, { headers: { authorization: `Bearer ${accessToken}` } });
+  const body = (await res.json().catch(() => null)) as Partial<XProfile> | null;
+  if (!res.ok || !body?.data?.id) {
+    throw new Error(`X /2/users/me failed (${res.status}): ${JSON.stringify(body).slice(0, 500)}`);
+  }
+  return body as XProfile;
+}
+
 const fullSizeAvatar = (url?: string) => url?.replace("_normal.", "_400x400.") ?? null;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
   session: { strategy: "database" },
+  pages: { error: "/auth-error" },
   providers: [
     Twitter({
+      userinfo: {
+        url: X_ME_URL,
+        request: async ({ tokens }: { tokens: { access_token?: string } }) => fetchXProfile(tokens.access_token),
+      },
       profile(profile) {
         const { data } = profile as unknown as XProfile;
         return {
